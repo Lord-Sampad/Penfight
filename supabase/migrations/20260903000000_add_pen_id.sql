@@ -1,0 +1,1 @@
+ALTER TABLE room_players ADD COLUMN pen_id TEXT;
