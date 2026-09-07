@@ -20,7 +20,7 @@ export default function LoginPage() {
               name="email" 
               type="email" 
               required 
-              className="w-full border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-red-600 font-sans"
+              className="w-full text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-red-600 font-sans"
               placeholder="Enter your ID"
             />
           </div>
@@ -31,7 +31,7 @@ export default function LoginPage() {
               name="password" 
               type="password" 
               required 
-              className="w-full border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-red-600 font-sans"
+              className="w-full text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-red-600 font-sans"
               placeholder="Secret scribbles"
             />
           </div>
@@ -66,12 +66,12 @@ export default function LoginPage() {
               </svg>
               Log in with Google
             </button>
-            
-            <p className="text-center text-sm font-mono mt-2">
-              Need an account? <Link href="/signup" className="text-red-600 underline decoration-wavy font-bold">Sign up</Link>
-            </p>
           </div>
         </form>
+
+        <p className="text-center text-sm font-mono mt-6">
+          Need an account? <Link href="/signup" className="text-red-600 underline decoration-wavy font-bold">Sign up</Link>
+        </p>
       </div>
     </div>
   )

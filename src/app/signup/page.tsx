@@ -20,7 +20,7 @@ export default function SignupPage() {
               name="email" 
               type="email" 
               required 
-              className="w-full border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-blue-600 font-sans"
+              className="w-full text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-blue-600 font-sans"
               placeholder="Enter your ID"
             />
           </div>
@@ -31,7 +31,7 @@ export default function SignupPage() {
               name="password" 
               type="password" 
               required 
-              className="w-full border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-blue-600 font-sans"
+              className="w-full text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 border-b-2 border-gray-900 dark:border-gray-100 bg-transparent py-2 focus:outline-none focus:border-blue-600 font-sans"
               placeholder="Secret scribbles"
             />
           </div>
@@ -62,12 +62,12 @@ export default function SignupPage() {
               </svg>
               Sign up with Google
             </button>
-            
-            <p className="text-center text-sm font-mono mt-2">
-              Already enrolled? <Link href="/login" className="text-blue-700 underline decoration-wavy font-bold">Log in</Link>
-            </p>
           </div>
         </form>
+
+        <p className="text-center text-sm font-mono mt-6">
+          Already enrolled? <Link href="/login" className="text-blue-700 underline decoration-wavy font-bold">Log in</Link>
+        </p>
       </div>
     </div>
   )
