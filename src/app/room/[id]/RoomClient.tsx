@@ -55,23 +55,9 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         console.log('leave', key, leftPresences)
       })
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'rooms',
-          filter: `id=eq.${room.id}`,
-        },
-        (payload) => {
-          if (payload.new.status === 'playing') {
-            router.push(`/play/${room.id}`)
-          }
-          if (payload.new.mode !== gameMode) {
-            setGameMode(payload.new.mode)
-          }
-        }
-      )
+      .on('broadcast', { event: 'GAME_STARTED' }, () => {
+        router.push(`/play/${room.id}`)
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({
@@ -132,7 +118,19 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
 
     if (error) {
       console.error('Failed to start game', error)
+      return
     }
+
+    const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
+    if (channel) {
+      channel.send({
+        type: 'broadcast',
+        event: 'GAME_STARTED',
+        payload: {}
+      })
+    }
+    
+    router.push(`/play/${room.id}`)
   }
 
   const copyCode = () => {
