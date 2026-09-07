@@ -18,6 +18,7 @@ interface PenMeta {
   penWid: number
   eliminated: boolean
   eliminatedAt?: number
+  lastSleeping: boolean
 }
 
 // ── World dimensions ──────────────────────────────────────────────────────────
@@ -517,12 +518,25 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       })
     }
 
+    const onNetworkEliminate = (e: any) => {
+      const pid = e.detail.playerId
+      const body = penBodies.current[pid]
+      if (body) {
+        const meta = (body as any).meta as PenMeta
+        if (!meta.eliminated) {
+          meta.eliminated = true
+          meta.eliminatedAt = Date.now()
+        }
+      }
+    }
+
     window.addEventListener('pen-shoot', onShoot)
     window.addEventListener('local-shoot-request', onShoot)
     window.addEventListener('pen-reset', onReset)
     window.addEventListener('turn-update', onTurnUpdate)
     window.addEventListener('request-sync-state', onRequestSync)
     window.addEventListener('apply-sync-state', onApplySync)
+    window.addEventListener('network-eliminate', onNetworkEliminate)
     
     return () => {
       window.removeEventListener('pen-shoot', onShoot)
@@ -531,6 +545,7 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       window.removeEventListener('turn-update', onTurnUpdate)
       window.removeEventListener('request-sync-state', onRequestSync)
       window.removeEventListener('apply-sync-state', onApplySync)
+      window.removeEventListener('network-eliminate', onNetworkEliminate)
     }
   }, [players])
 

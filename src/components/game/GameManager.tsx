@@ -341,6 +341,9 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
       if (processedElims.current.has(playerId)) return
       processedElims.current.add(playerId)
 
+      // Instantly tell our local physics engine to kill the pen!
+      window.dispatchEvent(new CustomEvent('network-eliminate', { detail: { playerId } }))
+
       const eliminated = [...stateRef.current.eliminatedPlayers, playerId]
       const { winner, isTeam } = findWinner(scores, players, teamMode)
       setGameState(prev => ({
