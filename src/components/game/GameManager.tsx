@@ -412,13 +412,12 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
     const handleSleep = (e: any) => {
       const { playerId, isSleeping } = e.detail
       sleepingPens.current[playerId] = isSleeping
-      if (isHost && isSleeping) checkAllSleeping(channel)
+      if (isSleeping) checkAllSleeping(channel)
     }
     window.addEventListener('pen-sleep', handleSleep)
     
-    // ── Provide Sync State (HOST ONLY) ────────────────────────────────────
+    // ── Provide Sync State ────────────────────────────────────────────────
     const handleProvideSync = (e: any) => {
-      if (!isHost) return
       const positions = e.detail
       
       const prev = stateRef.current
@@ -430,13 +429,16 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
       const nextPlayerId = players[nextIdx].player_id
       if (nextPlayerId === prev.activePlayerId) return // only 1 active left
       
-      channel.send({
-        type: 'broadcast',
-        event: 'SYNC_POSITIONS',
-        payload: { positions, nextPlayerId }
-      })
+      // Host broadcasts the authoritative state
+      if (isHost) {
+        channel.send({
+          type: 'broadcast',
+          event: 'SYNC_POSITIONS',
+          payload: { positions, nextPlayerId }
+        })
+      }
       
-      // Apply locally for Host
+      // Apply locally for BOTH (prevents desync if broadcast drops)
       setGameState(prev => ({ ...prev, activePlayerId: nextPlayerId }))
       window.dispatchEvent(new CustomEvent('turn-update', { detail: { activePlayerId: nextPlayerId } }))
     }
@@ -725,8 +727,8 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
         </div>
       </div>
 
-      {/* ── Top Center: HUD ── */}
-      <div className="absolute top-4 left-0 w-full flex flex-col md:flex-row items-center justify-center gap-2 md:gap-8 pointer-events-auto z-40 px-2 scale-90 md:scale-100 origin-top">
+      {/* ── Score cards (New Username Bar) ──────────────────────────────── */}
+      <div className="absolute top-16 left-4 flex flex-col gap-2 md:gap-3 pointer-events-auto z-40 scale-75 md:scale-100 origin-top-left">
         {players.map(p => {
           const score = gameState.scores[p.player_id] ?? 0
           const isMe = p.player_id === currentUserId
