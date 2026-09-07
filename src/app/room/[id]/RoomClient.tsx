@@ -27,6 +27,10 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
   const [selectedTeam, setSelectedTeam] = useState<string>('solo')
   const [gameMode, setGameMode] = useState<string>(room.mode)
   const [copied, setCopied] = useState(false)
+  
+  const [readyCheckOpen, setReadyCheckOpen] = useState(false)
+  const [readyResponses, setReadyResponses] = useState<Record<string, 'yes' | 'no'>>({})
+
   const supabase = createClient()
   const router = useRouter()
 
@@ -55,8 +59,35 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         console.log('leave', key, leftPresences)
       })
-      .on('broadcast', { event: 'GAME_STARTED' }, () => {
-        router.push(`/play/${room.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rooms',
+          filter: `id=eq.${room.id}`,
+        },
+        (payload) => {
+          if (payload.new.status === 'playing') {
+            router.push(`/play/${room.id}`)
+          }
+          if (payload.new.mode !== gameMode) {
+            setGameMode(payload.new.mode)
+          }
+        }
+      )
+      .on('broadcast', { event: 'READY_CHECK_START' }, () => {
+        setReadyResponses({})
+        setReadyCheckOpen(true)
+      })
+      .on('broadcast', { event: 'READY_CHECK_VOTE' }, ({ payload }) => {
+        if (payload.vote === 'no') {
+          setReadyCheckOpen(false)
+          alert(`A player is not ready. Match start cancelled.`)
+          setReadyResponses({})
+        } else {
+          setReadyResponses(prev => ({ ...prev, [payload.playerId]: payload.vote }))
+        }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -91,7 +122,7 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
     updatePresence()
   }, [selectedPen, selectedTeam])
 
-  const handleStartGame = async () => {
+  const executeStartGame = async () => {
     if (!isHost) return
     
     const playerUpdates = Object.values(players).map(p => ({
@@ -118,19 +149,29 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
 
     if (error) {
       console.error('Failed to start game', error)
+    }
+  }
+
+  useEffect(() => {
+    if (isHost && readyCheckOpen) {
+      const numPlayers = Object.keys(players).length;
+      const numYes = Object.values(readyResponses).filter(v => v === 'yes').length;
+      if (numPlayers > 1 && numYes === numPlayers) {
+        setReadyCheckOpen(false)
+        executeStartGame()
+      }
+    }
+  }, [readyResponses, players, isHost, readyCheckOpen])
+
+  const handleStartGame = () => {
+    if (Object.keys(players).length < 2) {
+      alert("Need at least 2 players to start.")
       return
     }
-
     const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
     if (channel) {
-      channel.send({
-        type: 'broadcast',
-        event: 'GAME_STARTED',
-        payload: {}
-      })
+      channel.send({ type: 'broadcast', event: 'READY_CHECK_START' })
     }
-    
-    router.push(`/play/${room.id}`)
   }
 
   const copyCode = () => {
@@ -317,6 +358,38 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
         </div>
 
       </div>
+      
+      {readyCheckOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white shadow-[8px_8px_0_#000] dark:shadow-[8px_8px_0_#fff] p-8 max-w-sm w-full text-center flex flex-col gap-6 animate-in zoom-in-95 duration-200">
+            <h2 className="text-3xl font-black uppercase text-black dark:text-white tracking-widest">Are you ready?</h2>
+            <div className="flex gap-4 w-full">
+              <button 
+                className={`flex-1 ${readyResponses[currentUser.id] ? 'bg-gray-400 border-gray-600' : 'bg-green-500 hover:-translate-y-1 hover:shadow-[4px_4px_0_#000] active:translate-y-1 active:shadow-none border-black'} text-white border-4 font-black py-3 uppercase tracking-widest transition-all`}
+                onClick={() => {
+                  const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
+                  channel?.send({ type: 'broadcast', event: 'READY_CHECK_VOTE', payload: { playerId: currentUser.id, vote: 'yes' } })
+                }}
+                disabled={!!readyResponses[currentUser.id]}
+              >
+                {readyResponses[currentUser.id] ? 'Waiting...' : 'YES'}
+              </button>
+              <button 
+                className="flex-1 bg-red-600 text-white hover:-translate-y-1 hover:shadow-[4px_4px_0_#000] active:translate-y-1 active:shadow-none border-4 border-black font-black py-3 uppercase tracking-widest transition-all"
+                onClick={() => {
+                  const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
+                  channel?.send({ type: 'broadcast', event: 'READY_CHECK_VOTE', payload: { playerId: currentUser.id, vote: 'no' } })
+                }}
+              >
+                NO
+              </button>
+            </div>
+            <p className="text-sm font-mono font-bold text-gray-600 dark:text-gray-400 uppercase">
+              {Object.keys(readyResponses).length} / {Object.keys(players).length} Players Ready
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
