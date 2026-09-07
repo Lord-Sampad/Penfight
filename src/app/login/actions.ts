@@ -35,14 +35,14 @@ export async function signup(formData: FormData) {
     password: formData.get('password') as string,
   }
 
-  const { error } = await supabase.auth.signUp(data)
+  const { data: authData, error } = await supabase.auth.signUp(data)
 
   if (error) {
     console.error('Signup error:', error.message)
     redirect('/error?message=' + encodeURIComponent(error.message))
   }
 
-  if (data?.user && !data?.session) {
+  if (authData?.user && !authData?.session) {
     redirect('/error?message=' + encodeURIComponent('Please check your email to confirm your account.'))
   }
 
