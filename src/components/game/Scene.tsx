@@ -70,6 +70,10 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
 
   const activePlayerId = useRef<string | null>(null)
 
+  const sortedPlayers = [...players].sort((a, b) => a.player_id.localeCompare(b.player_id))
+  const myIdx = sortedPlayers.findIndex(p => p.player_id === currentUserId)
+  const myAngle = myIdx >= 0 ? (myIdx / Math.max(1, sortedPlayers.length)) * Math.PI * 2 : 0
+
   // ── Setup ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current
@@ -95,9 +99,7 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     // Ring-out is detected in afterUpdate when position exceeds desk bounds.
 
     // ── Spawn pens ──────────────────────────────────────────────────────────
-    const sorted = [...players].sort((a, b) => a.player_id.localeCompare(b.player_id))
-
-    sorted.forEach((p, i) => {
+    sortedPlayers.forEach((p, i) => {
       const penId = (p.pen_id as PenId) ?? 'reynolds_045'
       const stats = PEN_PRESETS[penId] ?? PEN_PRESETS['reynolds_045']
 
@@ -106,7 +108,7 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       const penLen = BASE_LEN * lenScale
       const penWid = BASE_WID * widScale
 
-      const angle  = (i / Math.max(1, sorted.length)) * Math.PI * 2
+      const angle  = (i / Math.max(1, sortedPlayers.length)) * Math.PI * 2
       const spread = Math.min(DESK_W, DESK_H) * 0.26
       const sx = Math.sin(angle) * spread
       const sy = Math.cos(angle) * spread
@@ -220,6 +222,7 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       ctx.save()
       ctx.translate(W / 2, H / 2)
       ctx.scale(scale, scale)
+      ctx.rotate(-myAngle) // Make "my" side face the bottom
 
       // ── Battle Mat (Notebook paper aesthetic) ─────────────────────────
       ctx.shadowColor = 'rgba(45, 26, 12, 0.45)' // shadow-desk-shadow
@@ -464,9 +467,9 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     const onReset = (e: any) => {
       const pid = e.detail.playerId
       const body = penBodies.current[pid]
-      const idx = players.findIndex(p => p.player_id === pid)
+      const idx = sortedPlayers.findIndex(p => p.player_id === pid)
       if (!body || idx === -1) return
-      const angle  = (idx / Math.max(1, players.length)) * Math.PI * 2
+      const angle  = (idx / Math.max(1, sortedPlayers.length)) * Math.PI * 2
       const spread = Math.min(DESK_W, DESK_H) * 0.26
       ;(body as any).meta.eliminated = false
       Matter.Body.setStatic(body, false)
@@ -480,15 +483,42 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       activePlayerId.current = e.detail.activePlayerId
     }
 
+    const onRequestSync = () => {
+      const payload: Record<string, {x:number, y:number, angle:number}> = {}
+      Object.entries(penBodies.current).forEach(([pid, body]) => {
+        payload[pid] = { x: body.position.x, y: body.position.y, angle: body.angle }
+      })
+      window.dispatchEvent(new CustomEvent('provide-sync-state', { detail: payload }))
+    }
+
+    const onApplySync = (e: any) => {
+      const positions = e.detail
+      if (!positions) return
+      Object.entries(positions).forEach(([pid, pos]: [string, any]) => {
+        const body = penBodies.current[pid]
+        if (body) {
+          Matter.Body.setPosition(body, { x: pos.x, y: pos.y })
+          Matter.Body.setAngle(body, pos.angle)
+          Matter.Body.setVelocity(body, { x: 0, y: 0 })
+          Matter.Body.setAngularVelocity(body, 0)
+        }
+      })
+    }
+
     window.addEventListener('pen-shoot', onShoot)
     window.addEventListener('local-shoot-request', onShoot)
     window.addEventListener('pen-reset', onReset)
     window.addEventListener('turn-update', onTurnUpdate)
+    window.addEventListener('request-sync-state', onRequestSync)
+    window.addEventListener('apply-sync-state', onApplySync)
+    
     return () => {
       window.removeEventListener('pen-shoot', onShoot)
       window.removeEventListener('local-shoot-request', onShoot)
       window.removeEventListener('pen-reset', onReset)
       window.removeEventListener('turn-update', onTurnUpdate)
+      window.removeEventListener('request-sync-state', onRequestSync)
+      window.removeEventListener('apply-sync-state', onApplySync)
     }
   }, [players])
 
@@ -500,9 +530,15 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     const scale = Math.min((canvas.width - 40) / DESK_W, (canvas.height - 40) / DESK_H)
     const cx = (clientX - rect.left) * (canvas.width  / rect.width)
     const cy = (clientY - rect.top)  * (canvas.height / rect.height)
+    
+    // Convert to centered world space
+    const wx = (cx - canvas.width  / 2) / scale
+    const wy = (cy - canvas.height / 2) / scale
+    
+    // Rotate back by +myAngle to map screen click to actual world coordinate
     return {
-      x: (cx - canvas.width  / 2) / scale,
-      y: (cy - canvas.height / 2) / scale,
+      x: wx * Math.cos(myAngle) - wy * Math.sin(myAngle),
+      y: wx * Math.sin(myAngle) + wy * Math.cos(myAngle)
     }
   }
 
@@ -532,11 +568,17 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
 
   // ── Pointer handlers ────────────────────────────────────────────────────────
   const onPointerDown = (e: React.PointerEvent) => {
+    // 1. Is it my turn?
+    if (activePlayerId.current !== currentUserId) return
+
     const pos = toWorld(e.clientX, e.clientY)
     if (!pos) return
 
     const pid = findPen(pos.x, pos.y)
     if (!pid) return
+
+    // 2. Am I grabbing my own pen?
+    if (pid !== currentUserId) return
 
     // Contact world point = exact click position (not pen center)
     // This is the point the force is applied at, creating realistic torque

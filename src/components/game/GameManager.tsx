@@ -78,9 +78,13 @@ function findWinner(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function GameManager({ roomId, currentUserId, players, isHost }: GameManagerProps) {
+export default function GameManager({ roomId, currentUserId, players: rawPlayers, isHost }: GameManagerProps) {
   const supabase = createClient()
   const router = useRouter()
+  
+  // Sort players deterministically so host and clients agree on turn order!
+  const players = [...rawPlayers].sort((a, b) => a.player_id.localeCompare(b.player_id))
+  
   const teamMode = isTeamMode(players)
 
   const initialScores: Record<string, number> = {}
@@ -363,11 +367,24 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
       }))
     })
 
+    // ── SYNC_POSITIONS ─────────────────────────────────────────────────────
+    channel.on('broadcast', { event: 'SYNC_POSITIONS' }, ({ payload }) => {
+      // Dispatched to local Scene
+      window.dispatchEvent(new CustomEvent('apply-sync-state', { detail: payload.positions }))
+      
+      // Advance turn locally
+      if (payload.nextPlayerId) {
+        setGameState(prev => ({ ...prev, activePlayerId: payload.nextPlayerId }))
+        window.dispatchEvent(new CustomEvent('turn-update', { detail: { activePlayerId: payload.nextPlayerId } }))
+      }
+    })
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         await channel.track({ user_id: currentUserId, status: 'online' })
       }
     })
+    
     // ── Pen sleep ─────────────────────────────────────────────────────────
     const handleSleep = (e: any) => {
       const { playerId, isSleeping } = e.detail
@@ -375,6 +392,32 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
       if (isHost && isSleeping) checkAllSleeping(channel)
     }
     window.addEventListener('pen-sleep', handleSleep)
+    
+    // ── Provide Sync State (HOST ONLY) ────────────────────────────────────
+    const handleProvideSync = (e: any) => {
+      if (!isHost) return
+      const positions = e.detail
+      
+      const prev = stateRef.current
+      let nextIdx = players.findIndex(p => p.player_id === prev.activePlayerId)
+      for (let i = 0; i < players.length; i++) {
+        nextIdx = (nextIdx + 1) % players.length
+        if (!prev.eliminatedPlayers.includes(players[nextIdx].player_id)) break
+      }
+      const nextPlayerId = players[nextIdx].player_id
+      if (nextPlayerId === prev.activePlayerId) return // only 1 active left
+      
+      channel.send({
+        type: 'broadcast',
+        event: 'SYNC_POSITIONS',
+        payload: { positions, nextPlayerId }
+      })
+      
+      // Apply locally for Host
+      setGameState(prev => ({ ...prev, activePlayerId: nextPlayerId }))
+      window.dispatchEvent(new CustomEvent('turn-update', { detail: { activePlayerId: nextPlayerId } }))
+    }
+    window.addEventListener('provide-sync-state', handleProvideSync)
 
     // ── Ring-out (HOST ONLY) ───────────────────────────────────────────────
     const handleRingOut = (e: any) => {
@@ -456,6 +499,7 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
     return () => {
       channel.unsubscribe()
       window.removeEventListener('pen-sleep', handleSleep)
+      window.removeEventListener('provide-sync-state', handleProvideSync)
       window.removeEventListener('pen-ringout', handleRingOut)
       if (resetTimer.current) clearTimeout(resetTimer.current)
     }
@@ -468,17 +512,9 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
     const prev = stateRef.current
     if (!prev.roundInProgress || prev.winner) return
 
-    let nextIdx = players.findIndex(p => p.player_id === prev.activePlayerId)
-    for (let i = 0; i < players.length; i++) {
-      nextIdx = (nextIdx + 1) % players.length
-      if (!prev.eliminatedPlayers.includes(players[nextIdx].player_id)) break
-    }
-    const nextPlayerId = players[nextIdx].player_id
-    if (nextPlayerId === prev.activePlayerId) return // only 1 active player left
-
-    channel.send({ type: 'broadcast', event: 'NEXT_TURN', payload: { nextPlayerId } })
-    setGameState(prev => ({ ...prev, activePlayerId: nextPlayerId }))
-  }, [players])
+    // Instead of immediately advancing turn, request physics state from local Scene
+    window.dispatchEvent(new CustomEvent('request-sync-state'))
+  }, [])
 
   // ── Round reset ───────────────────────────────────────────────────────────
   const triggerRoundReset = useCallback((channel: any, scores: Record<string, number>, firstPlayerId: string) => {
