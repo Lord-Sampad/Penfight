@@ -125,23 +125,6 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
   const executeStartGame = async () => {
     if (!isHost) return
     
-    const playerUpdates = Object.values(players).map(p => ({
-      room_id: room.id,
-      player_id: p.id,
-      team: p.teamId === 'solo' ? `solo-${p.id}` : p.teamId,
-      pen_id: p.penId,
-      status: 'ready'
-    }))
-
-    const { error: playersError } = await supabase
-      .from('room_players')
-      .upsert(playerUpdates)
-
-    if (playersError) {
-      console.error('Failed to update players', playersError)
-      return
-    }
-
     const { error } = await supabase
       .from('rooms')
       .update({ status: 'playing', mode: gameMode })
@@ -369,11 +352,20 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
             <div className="flex gap-4 w-full">
               <button 
                 className={`flex-1 ${readyResponses[currentUser.id] ? 'bg-gray-400 border-gray-600' : 'bg-green-500 hover:-translate-y-1 hover:shadow-[4px_4px_0_#000] active:translate-y-1 active:shadow-none border-black'} text-white border-4 font-black py-3 uppercase tracking-widest transition-all`}
-                onClick={() => {
+                onClick={async () => {
                   const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
                   channel?.send({ type: 'broadcast', event: 'READY_CHECK_VOTE', payload: { playerId: currentUser.id, vote: 'yes' } })
                   // Local sync
                   setReadyResponses(prev => ({ ...prev, [currentUser.id]: 'yes' }))
+                  
+                  // Save my own loadout to DB so it persists into the match!
+                  await supabase.from('room_players').upsert({
+                    room_id: room.id,
+                    player_id: currentUser.id,
+                    team: selectedTeam === 'solo' ? `solo-${currentUser.id}` : selectedTeam,
+                    pen_id: selectedPen,
+                    status: 'ready'
+                  })
                 }}
                 disabled={!!readyResponses[currentUser.id]}
               >
