@@ -173,11 +173,31 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
     if (isHost && !gameState.activePlayerId && !gameState.winner) {
       const allReady = players.length > 0 && players.every(p => readyPlayers[p.player_id])
       if (allReady) {
+        const firstPlayerId = players[0]?.player_id ?? null
         channelRef.current?.send({
           type: 'broadcast',
           event: 'ROUND_RESET',
-          payload: { firstPlayerId: players[0]?.player_id ?? null, scores: {} }
+          payload: { firstPlayerId, scores: {} }
         })
+        
+        // Supabase broadcasts do not loop back to the sender!
+        // The host must update their own local state to dismiss the VS screen.
+        setGameState(prev => ({
+          ...prev,
+          activePlayerId: firstPlayerId,
+          scores: {},
+          roundInProgress: true,
+          eliminatedPlayers: [],
+          knockoutMessage: null,
+          // If the match just started, we are on round 1 (or we can just keep prev.roundNumber)
+        }))
+        
+        // Dispatch pen-reset for all pens to ensure they are at starting positions
+        players.forEach(p => {
+          window.dispatchEvent(new CustomEvent('pen-reset', { detail: { playerId: p.player_id } }))
+          sleepingPens.current[p.player_id] = true
+        })
+        window.dispatchEvent(new CustomEvent('turn-update', { detail: { activePlayerId: firstPlayerId } }))
       }
     }
   }, [readyPlayers, isHost, gameState.activePlayerId, gameState.winner, players])
