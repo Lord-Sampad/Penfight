@@ -138,6 +138,7 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
         imagePath: stats.image,
         penLen, penWid,
         eliminated: false,
+        lastSleeping: true, // pens spawn asleep
       }
       ;(body as any).meta = meta
 
@@ -167,6 +168,13 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     Matter.Events.on(engine, 'afterUpdate', () => {
       Object.entries(penBodies.current).forEach(([pid, body]) => {
         const meta = (body as any).meta as PenMeta
+        
+        // Track sleep state and dispatch events
+        if (body.isSleeping !== (body as any).meta.lastSleeping) {
+          ;(body as any).meta.lastSleeping = body.isSleeping
+          window.dispatchEvent(new CustomEvent('pen-sleep', { detail: { playerId: pid, isSleeping: body.isSleeping } }))
+        }
+
         if (meta.eliminated) return
 
         // Apply extra angular damping smoothly (no discontinuities)
@@ -477,6 +485,8 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       Matter.Body.setVelocity(body, { x: 0, y: 0 })
       Matter.Body.setAngularVelocity(body, 0)
       Matter.Body.setAngle(body, angle + Math.PI / 2)
+      Matter.Sleeping.set(body, true)
+      ;(body as any).meta.lastSleeping = true
     }
 
     const onTurnUpdate = (e: any) => {
@@ -501,6 +511,8 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
           Matter.Body.setAngle(body, pos.angle)
           Matter.Body.setVelocity(body, { x: 0, y: 0 })
           Matter.Body.setAngularVelocity(body, 0)
+          Matter.Sleeping.set(body, true)
+          ;(body as any).meta.lastSleeping = true
         }
       })
     }
