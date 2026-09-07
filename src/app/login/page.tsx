@@ -69,7 +69,7 @@ export default function LoginPage() {
           </div>
         </form>
 
-        <p className="text-center text-sm font-mono mt-6">
+        <p className="text-center text-sm font-mono mt-6 text-gray-700 dark:text-gray-300">
           Need an account? <Link href="/signup" className="text-red-600 underline decoration-wavy font-bold">Sign up</Link>
         </p>
       </div>

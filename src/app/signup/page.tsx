@@ -65,7 +65,7 @@ export default function SignupPage() {
           </div>
         </form>
 
-        <p className="text-center text-sm font-mono mt-6">
+        <p className="text-center text-sm font-mono mt-6 text-gray-700 dark:text-gray-300">
           Already enrolled? <Link href="/login" className="text-blue-700 underline decoration-wavy font-bold">Log in</Link>
         </p>
       </div>
