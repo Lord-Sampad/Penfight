@@ -171,6 +171,9 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
     const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
     if (channel) {
       channel.send({ type: 'broadcast', event: 'READY_CHECK_START' })
+      // Supabase broadcasts don't loop back to the sender, so update locally!
+      setReadyResponses({})
+      setReadyCheckOpen(true)
     }
   }
 
@@ -369,6 +372,8 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
                 onClick={() => {
                   const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
                   channel?.send({ type: 'broadcast', event: 'READY_CHECK_VOTE', payload: { playerId: currentUser.id, vote: 'yes' } })
+                  // Local sync
+                  setReadyResponses(prev => ({ ...prev, [currentUser.id]: 'yes' }))
                 }}
                 disabled={!!readyResponses[currentUser.id]}
               >
@@ -379,6 +384,10 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
                 onClick={() => {
                   const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
                   channel?.send({ type: 'broadcast', event: 'READY_CHECK_VOTE', payload: { playerId: currentUser.id, vote: 'no' } })
+                  // Local sync
+                  setReadyCheckOpen(false)
+                  alert(`A player is not ready. Match start cancelled.`)
+                  setReadyResponses({})
                 }}
               >
                 NO
