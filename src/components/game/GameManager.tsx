@@ -87,7 +87,7 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
   players.forEach(p => { initialScores[p.player_id] = 0 })
 
   const [gameState, setGameState] = useState<GameState>({
-    activePlayerId: players[0]?.player_id ?? null,
+    activePlayerId: null,
     scores: initialScores,
     winner: null,
     winnerIsTeam: false,
@@ -161,13 +161,8 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
 
   const handlePreMatchReady = () => {
     if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'PLAYER_READY',
-        payload: { playerId: currentUserId }
-      })
+      channelRef.current.track({ user_id: currentUserId, status: 'online', isReady: true })
     }
-    setReadyPlayers(prev => ({ ...prev, [currentUserId]: true }))
   }
 
   useEffect(() => {
@@ -257,6 +252,12 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
       const onlineIds = Object.values(state).flat().map((p: any) => p.user_id)
+      
+      const newReadyState: Record<string, boolean> = {}
+      Object.values(state).flat().forEach((p: any) => {
+        if (p.isReady) newReadyState[p.user_id] = true
+      })
+      setReadyPlayers(prev => ({ ...prev, ...newReadyState }))
       
       players.forEach(p => {
         if (!onlineIds.includes(p.player_id)) {
@@ -367,11 +368,6 @@ export default function GameManager({ roomId, currentUserId, players, isHost }: 
         await channel.track({ user_id: currentUserId, status: 'online' })
       }
     })
-    
-    channel.on('broadcast', { event: 'PLAYER_READY' }, ({ payload }) => {
-      setReadyPlayers(prev => ({ ...prev, [payload.playerId]: true }))
-    })
-
     // ── Pen sleep ─────────────────────────────────────────────────────────
     const handleSleep = (e: any) => {
       const { playerId, isSleeping } = e.detail

@@ -68,7 +68,7 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     mouseWorld:   { x: number; y: number }
   }>({ active: false, pid: null, contactWorld: {x:0,y:0}, mouseWorld: {x:0,y:0} })
 
-  const activePlayerId = useRef<string | null>(players[0]?.player_id ?? null)
+  const activePlayerId = useRef<string | null>(null)
 
   // ── Setup ──────────────────────────────────────────────────────────────────
   useEffect(() => {
