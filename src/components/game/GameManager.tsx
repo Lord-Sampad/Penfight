@@ -725,8 +725,8 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
         </div>
       </div>
 
-      {/* ── Score cards (New Username Bar) ──────────────────────────────── */}
-      <div className="absolute top-16 left-4 flex flex-col gap-3 pointer-events-auto z-40">
+      {/* ── Top Center: HUD ── */}
+      <div className="absolute top-4 left-0 w-full flex flex-col md:flex-row items-center justify-center gap-2 md:gap-8 pointer-events-auto z-40 px-2 scale-90 md:scale-100 origin-top">
         {players.map(p => {
           const score = gameState.scores[p.player_id] ?? 0
           const isMe = p.player_id === currentUserId
@@ -736,7 +736,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
           return (
             <div
               key={p.player_id}
-              className={`bg-[#fdfbf7] dark:bg-neutral-900 rounded-xl px-4 py-2 flex items-center gap-4 border-2 border-black dark:border-neutral-600 shadow-[4px_4px_0px_0px_#000] transition-all duration-200 cursor-pointer ${isElim ? 'opacity-50 grayscale scale-95' : 'hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_#000] active:translate-y-0.5 active:shadow-[2px_2px_0px_0px_#000]'}`}
+              className={`bg-[#fdfbf7] dark:bg-neutral-900 rounded-xl px-3 py-1.5 md:px-4 md:py-2 flex items-center gap-2 md:gap-4 border-2 border-black dark:border-neutral-600 shadow-[2px_2px_0px_0px_#000] md:shadow-[4px_4px_0px_0px_#000] transition-all duration-200 cursor-pointer ${isElim ? 'opacity-50 grayscale scale-95' : 'hover:-translate-y-1 hover:shadow-[4px_4px_0px_0px_#000] md:hover:shadow-[6px_6px_0px_0px_#000] active:translate-y-0.5 active:shadow-none md:active:shadow-[2px_2px_0px_0px_#000]'}`}
             >
               {/* Score Box */}
               <div className="bg-[#fff9e6] dark:bg-neutral-800 border-2 border-[#fcd34d] dark:border-yellow-600 rounded-lg px-2.5 py-1 flex items-center gap-1.5 min-w-[3rem] justify-center transition-colors">
@@ -793,17 +793,17 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
 
       {/* ── Bottom Left: Drag Popup ── */}
       {gameState.activePlayerId === currentUserId && gameState.roundInProgress && !dragInfo.active && (
-        <div className="absolute bottom-6 left-6 bg-[#1f1e1a] border-2 border-black rounded-full px-3 py-1.5 shadow-[3px_3px_0px_0px_#000] dark:shadow-[3px_3px_0px_0px_#fff] flex items-center gap-2 pointer-events-auto z-40 animate-bounce transition-all">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 md:-translate-x-0 md:left-6 bg-[#1f1e1a] border-2 border-black rounded-full px-3 py-1.5 shadow-[3px_3px_0px_0px_#000] dark:shadow-[3px_3px_0px_0px_#fff] flex items-center gap-2 pointer-events-auto z-40 animate-bounce transition-all scale-75 md:scale-100 whitespace-nowrap">
           <span className="text-yellow-500 text-sm">👆</span>
-          <span className="text-white font-black text-[10px] tracking-wide">DRAG & RELEASE TO FLICK</span>
-          <span className="text-neutral-500 text-[10px]">•</span>
-          <span className="text-[#fcd34d] font-bold text-[8px] tracking-widest uppercase">Knock Rival Off Desk To Win</span>
+          <span className="text-white font-black text-[10px] tracking-wide">DRAG TO FLICK</span>
+          <span className="text-neutral-500 text-[10px] hidden md:inline">•</span>
+          <span className="text-[#fcd34d] font-bold text-[8px] tracking-widest uppercase hidden md:inline">Knock Rival Off Desk To Win</span>
         </div>
       )}
 
       {/* ── Bottom Right: Flick Radar ── */}
       <div 
-        className="absolute bottom-6 right-6 bg-[#fdfbf7] dark:bg-neutral-900 border-2 border-black dark:border-neutral-600 rounded-xl shadow-[6px_6px_0px_0px_#000] p-4 w-72 pointer-events-auto z-40 flex flex-col gap-4 transition-transform hover:-translate-y-1 flick-radar-bg"
+        className="absolute bottom-6 right-6 bg-[#fdfbf7] dark:bg-neutral-900 border-2 border-black dark:border-neutral-600 rounded-xl shadow-[6px_6px_0px_0px_#000] p-4 w-72 pointer-events-auto z-40 hidden md:flex flex-col gap-4 transition-transform hover:-translate-y-1 flick-radar-bg"
       >
         <style>{`.flick-radar-bg { background-image: linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px); background-size: 12px 12px; } .dark .flick-radar-bg { background-image: none; }`}</style>
         

@@ -487,7 +487,16 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       Matter.Body.setAngularVelocity(body, 0)
       Matter.Body.setAngle(body, angle + Math.PI / 2)
       Matter.Sleeping.set(body, true)
-      ;(body as any).meta.lastSleeping = true
+      
+      const meta = (body as any).meta as PenMeta
+      meta.lastSleeping = true
+      meta.eliminated = false
+      meta.eliminatedAt = undefined
+      body.isSensor = false
+      
+      // Restore frictionAir based on stats
+      const stats = PEN_PRESETS[sortedPlayers[idx].pen_id as PenId] || PEN_PRESETS['reynolds_045']
+      body.frictionAir = PHYS.frictionAir * Math.max(0.8, (stats.linearDamping ?? 0.55))
     }
 
     const onTurnUpdate = (e: any) => {
