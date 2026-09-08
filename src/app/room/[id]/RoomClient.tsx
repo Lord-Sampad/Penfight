@@ -160,6 +160,15 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
     }
   }
 
+  const handleExitRoom = async () => {
+    // Attempt to remove player from room
+    await supabase.from('room_players').delete().eq('room_id', room.id).eq('player_id', currentUser.id)
+    
+    // If host leaves, ideally the room could be reassigned or deleted, 
+    // but the cron job will clean up empty rooms.
+    router.push('/dashboard')
+  }
+
   const copyCode = () => {
     navigator.clipboard.writeText(room.code)
     setCopied(true)
@@ -186,7 +195,15 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
           
           {/* LOBBY PANEL */}
           <div className="bg-white dark:bg-gray-900 border-4 border-gray-900 dark:border-gray-100 shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] md:shadow-[8px_8px_0_#000] md:dark:shadow-[8px_8px_0_#fff] p-6 h-fit">
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest border-b-4 border-red-600 pb-4 mb-6">Lobby</h1>
+            <div className="flex justify-between items-center border-b-4 border-red-600 pb-4 mb-6">
+              <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest">Lobby</h1>
+              <button 
+                onClick={handleExitRoom}
+                className="bg-gray-200 hover:bg-red-100 dark:bg-gray-800 dark:hover:bg-red-900 text-gray-900 dark:text-gray-100 hover:text-red-600 border-2 border-gray-900 dark:border-gray-100 font-bold uppercase tracking-widest text-xs px-4 py-2 transition-colors shadow-[2px_2px_0_#000] dark:shadow-[2px_2px_0_#fff] hover:-translate-y-0.5"
+              >
+                Exit Room
+              </button>
+            </div>
             
             <div className="mb-6">
               <p className="text-xs text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mb-2 font-mono">Room Code</p>
@@ -260,43 +277,44 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
           </div>
 
           {/* HOST CONTROLS PANEL */}
-          <div className="bg-white dark:bg-gray-900 border-4 border-gray-900 dark:border-gray-100 shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] md:shadow-[8px_8px_0_#000] md:dark:shadow-[8px_8px_0_#fff] p-6 h-fit">
-            <h2 className="text-xl md:text-2xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest border-b-4 border-red-600 pb-4 mb-6">Host Controls</h2>
-            
-            {isHost ? (
-              <>
-                <div className="mb-6">
-                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-widest font-mono">Game Mode</label>
-                  <div className="relative">
-                    <select 
-                      value={gameMode}
-                      onChange={(e) => setGameMode(e.target.value)}
-                      className="w-full bg-white dark:bg-gray-900 border-4 border-gray-900 dark:border-gray-100 p-3 font-bold uppercase text-gray-900 dark:text-gray-100 appearance-none focus:outline-none focus:border-red-600 cursor-pointer shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff]"
-                    >
-                      <option value="1v1">1v1 Duel</option>
-                      <option value="ffa">Free-For-All</option>
-                      <option value="team">Team Battle</option>
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-900 dark:text-gray-100">
-                      ▼
-                    </div>
+          {isHost ? (
+            <div className="bg-white dark:bg-gray-900 border-4 border-gray-900 dark:border-gray-100 shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] md:shadow-[8px_8px_0_#000] md:dark:shadow-[8px_8px_0_#fff] p-6 h-fit">
+              <h2 className="text-xl md:text-2xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest border-b-4 border-red-600 pb-4 mb-6">Host Controls</h2>
+              
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-widest font-mono">Game Mode</label>
+                <div className="relative">
+                  <select 
+                    value={gameMode}
+                    onChange={(e) => setGameMode(e.target.value)}
+                    className="w-full bg-white dark:bg-gray-900 border-4 border-gray-900 dark:border-gray-100 p-3 font-bold uppercase text-gray-900 dark:text-gray-100 appearance-none focus:outline-none focus:border-red-600 cursor-pointer shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff]"
+                  >
+                    <option value="1v1">1v1 Duel</option>
+                    <option value="ffa">Free-For-All</option>
+                    <option value="team">Team Battle</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-900 dark:text-gray-100">
+                    ▼
                   </div>
                 </div>
+              </div>
 
-                <button 
-                  onClick={handleStartGame}
-                  className="w-full bg-[#b81d22] border-4 border-gray-900 dark:border-gray-100 text-white font-black uppercase tracking-widest py-3 px-4 shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] transition-all flex justify-center items-center gap-3 hover:bg-red-800 hover:translate-y-1 hover:shadow-none"
-                >
-                  <Play size={20} />
-                  Start Game
-                </button>
-              </>
-            ) : (
+              <button 
+                onClick={handleStartGame}
+                className="w-full bg-[#b81d22] border-4 border-gray-900 dark:border-gray-100 text-white font-black uppercase tracking-widest py-3 px-4 shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] transition-all flex justify-center items-center gap-3 hover:bg-red-800 hover:translate-y-1 hover:shadow-none"
+              >
+                <Play size={20} />
+                Start Game
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-900 border-4 border-gray-900 dark:border-gray-100 shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] md:shadow-[8px_8px_0_#000] md:dark:shadow-[8px_8px_0_#fff] p-6 h-fit">
+              <h2 className="text-xl md:text-2xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest border-b-4 border-red-600 pb-4 mb-6">Match Status</h2>
               <div className="flex items-center justify-center h-20 bg-gray-50 dark:bg-gray-800 border-4 border-dashed border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 font-bold font-mono uppercase text-sm">
                  Waiting for host...
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
         </div>
 

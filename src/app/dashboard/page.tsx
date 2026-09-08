@@ -4,7 +4,9 @@ import { createRoom, joinRoom } from './actions'
 import { Plus, LogIn } from 'lucide-react'
 import Link from 'next/link'
 import { NavBar } from '@/components/NavBar'
-import { VideoGameIcon, DoorIcon, ArenaIcon, TrophyIcon } from '@/components/icons'
+import { ArenaIcon, TrophyIcon } from '@/components/icons'
+import { RoomErrorDialog } from '@/components/RoomErrorDialog'
+import { CreateRoomButton, JoinRoomButton } from '@/components/DashboardSubmitButtons'
 
 import { getAvatarInfo } from '@/lib/userUtils'
 
@@ -32,6 +34,8 @@ export default async function DashboardPage() {
     <div className="classroom-bg min-h-screen relative font-sans">
       {/* Faded grid overlay */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-80 ruled-paper dark:invert dark:opacity-40"></div>
+
+      <RoomErrorDialog />
 
       {/* Top Nav */}
       <NavBar 
@@ -71,10 +75,7 @@ export default async function DashboardPage() {
             <h2 className="text-xl md:text-2xl font-black text-gray-900 dark:text-gray-100 border-b-2 border-gray-200 dark:border-gray-800 pb-4">Play</h2>
             
             <form action={createRoom}>
-              <button className="w-full bg-[#1a237e] hover:bg-blue-900 text-white font-black uppercase tracking-widest py-4 px-6 rounded shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] border-4 border-gray-900 dark:border-gray-100 transition-all hover:translate-y-1 hover:shadow-[0px_0px_0_#000] flex justify-center items-center gap-3">
-                <VideoGameIcon className="text-3xl bg-white border-2 border-black rounded-sm p-1" />
-                Create Room
-              </button>
+              <CreateRoomButton />
             </form>
             
             <div className="relative flex items-center py-2">
@@ -92,9 +93,7 @@ export default async function DashboardPage() {
                 maxLength={6}
                 required
               />
-              <button className="bg-[#b81d22] hover:bg-red-800 text-white font-bold py-3 px-6 rounded shadow-[4px_4px_0_#000] dark:shadow-[4px_4px_0_#fff] border-4 border-gray-900 dark:border-gray-100 transition-all hover:translate-y-1 hover:shadow-none flex items-center justify-center">
-                <DoorIcon className="text-3xl bg-white border-2 border-black rounded-sm p-1" />
-              </button>
+              <JoinRoomButton />
             </form>
           </div>
         </div>

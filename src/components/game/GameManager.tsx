@@ -570,7 +570,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
     } catch (e) {
       console.error('finish_match failed', e)
     }
-    setTimeout(() => router.push('/dashboard'), 5000)
+    // Let users manually click "Back to Lobby" or "Exit" instead of auto-redirecting
   }, [roomId])
 
   // ── Local shoot → broadcast ───────────────────────────────────────────────
