@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PEN_PRESETS, PenId, PenStats } from '@/lib/game/pens'
 import { useRouter } from 'next/navigation'
-import { Users, Play, Copy, Check, Crown } from 'lucide-react'
+import { Users, Play, Copy, Check, Crown, Pen } from 'lucide-react'
 import { NavBar } from '@/components/NavBar'
 
 type RoomClientProps = {
@@ -30,6 +30,7 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
   
   const [readyCheckOpen, setReadyCheckOpen] = useState(false)
   const [readyResponses, setReadyResponses] = useState<Record<string, 'yes' | 'no'>>({})
+  const [isStartingGame, setIsStartingGame] = useState(false)
 
   const supabase = createClient()
   const router = useRouter()
@@ -69,6 +70,7 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
         },
         (payload) => {
           if (payload.new.status === 'playing') {
+            setIsStartingGame(true)
             router.push(`/play/${room.id}`)
           }
           if (payload.new.mode !== gameMode) {
@@ -83,11 +85,15 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
       .on('broadcast', { event: 'READY_CHECK_VOTE' }, ({ payload }) => {
         if (payload.vote === 'no') {
           setReadyCheckOpen(false)
-          alert(`A player is not ready. Match start cancelled.`)
           setReadyResponses({})
+          // Optional non-blocking UI feedback can be done here.
         } else {
           setReadyResponses(prev => ({ ...prev, [payload.playerId]: payload.vote }))
         }
+      })
+      .on('broadcast', { event: 'GAME_STARTED' }, () => {
+        setIsStartingGame(true)
+        router.push(`/play/${room.id}`)
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -132,13 +138,22 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
 
     if (error) {
       console.error('Failed to start game', error)
+      alert('Failed to start game: ' + error.message)
+    } else {
+      setIsStartingGame(true)
+      const channel = supabase.getChannels().find(c => c.topic === `realtime:room:${room.id}`)
+      channel?.send({ type: 'broadcast', event: 'GAME_STARTED' })
+      router.push(`/play/${room.id}`)
     }
   }
 
   useEffect(() => {
     if (isHost && readyCheckOpen) {
-      const numPlayers = Object.keys(players).length;
-      const numYes = Object.values(readyResponses).filter(v => v === 'yes').length;
+      const currentPlayersKeys = Object.keys(players);
+      const numPlayers = currentPlayersKeys.length;
+      
+      const numYes = currentPlayersKeys.filter(playerId => readyResponses[playerId] === 'yes').length;
+      
       if (numPlayers > 1 && numYes === numPlayers) {
         setReadyCheckOpen(false)
         executeStartGame()
@@ -179,6 +194,18 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
     <div className="classroom-bg min-h-screen relative font-sans">
       {/* Faded grid overlay */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-80 ruled-paper dark:invert dark:opacity-40"></div>
+
+      {isStartingGame && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white shadow-[8px_8px_0_#000] dark:shadow-[8px_8px_0_#fff] p-8 max-w-sm w-full text-center flex flex-col items-center gap-6 animate-in zoom-in-95 duration-200">
+            <div className="animate-spin text-red-600">
+              <Pen size={48} />
+            </div>
+            <h2 className="text-2xl font-black uppercase text-black dark:text-white tracking-widest animate-pulse">Loading Arena...</h2>
+            <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Sharpening your pens.</p>
+          </div>
+        </div>
+      )}
 
       {/* Top Nav */}
       <NavBar 
@@ -396,7 +423,6 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
                   channel?.send({ type: 'broadcast', event: 'READY_CHECK_VOTE', payload: { playerId: currentUser.id, vote: 'no' } })
                   // Local sync
                   setReadyCheckOpen(false)
-                  alert(`A player is not ready. Match start cancelled.`)
                   setReadyResponses({})
                 }}
               >
