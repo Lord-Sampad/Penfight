@@ -418,6 +418,8 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
     
     // ── Provide Sync State ────────────────────────────────────────────────
     const handleProvideSync = (e: any) => {
+      if (!isHost) return; // ONLY HOST controls turn logic to prevent desync
+      
       const positions = e.detail
       
       const prev = stateRef.current
@@ -430,15 +432,13 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
       if (nextPlayerId === prev.activePlayerId) return // only 1 active left
       
       // Host broadcasts the authoritative state
-      if (isHost) {
-        channel.send({
-          type: 'broadcast',
-          event: 'SYNC_POSITIONS',
-          payload: { positions, nextPlayerId }
-        })
-      }
+      channel.send({
+        type: 'broadcast',
+        event: 'SYNC_POSITIONS',
+        payload: { positions, nextPlayerId }
+      })
       
-      // Apply locally for BOTH (prevents desync if broadcast drops)
+      // Apply locally for HOST
       setGameState(prev => ({ ...prev, activePlayerId: nextPlayerId }))
       window.dispatchEvent(new CustomEvent('turn-update', { detail: { activePlayerId: nextPlayerId } }))
     }

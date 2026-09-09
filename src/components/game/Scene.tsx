@@ -93,6 +93,8 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     const engine = Matter.Engine.create({
       gravity: { x: 0, y: 0, scale: 0 },
       enableSleeping: true,
+      positionIterations: 16,
+      velocityIterations: 16,
     })
     engineRef.current = engine
 
