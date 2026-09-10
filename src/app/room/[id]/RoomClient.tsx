@@ -31,6 +31,7 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
   const [readyCheckOpen, setReadyCheckOpen] = useState(false)
   const [readyResponses, setReadyResponses] = useState<Record<string, 'yes' | 'no'>>({})
   const [isStartingGame, setIsStartingGame] = useState(false)
+  const [allowPenChange, setAllowPenChange] = useState(room.allow_pen_change || false)
 
   const supabase = createClient()
   const router = useRouter()
@@ -75,6 +76,9 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
           }
           if (payload.new.mode !== gameMode) {
             setGameMode(payload.new.mode)
+          }
+          if (payload.new.allow_pen_change !== allowPenChange) {
+            setAllowPenChange(payload.new.allow_pen_change)
           }
         }
       )
@@ -324,6 +328,26 @@ export default function RoomClient({ room, currentUser, isHost }: RoomClientProp
                     ▼
                   </div>
                 </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      checked={allowPenChange}
+                      onChange={async (e) => {
+                        const checked = e.target.checked
+                        setAllowPenChange(checked)
+                        await supabase.from('rooms').update({ allow_pen_change: checked }).eq('id', room.id)
+                      }}
+                      className="sr-only"
+                    />
+                    <div className={`block w-14 h-8 rounded-full border-4 border-gray-900 dark:border-gray-100 transition-colors ${allowPenChange ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'}`}></div>
+                    <div className={`absolute left-1 top-1 bg-white dark:bg-gray-900 w-5 h-5 rounded-full transition-transform border-2 border-gray-900 dark:border-gray-100 ${allowPenChange ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                  </div>
+                  <span className="font-bold text-gray-900 dark:text-gray-100 text-xs uppercase tracking-widest font-mono">Allow Pen Change Between Rounds</span>
+                </label>
               </div>
 
               <button 

@@ -55,6 +55,7 @@ export default async function PlayPage({
         currentUserId={user.id} 
         players={players || []} 
         isHost={room.host_id === user.id}
+        allowPenChange={room.allow_pen_change || false}
       />
       <div className="relative z-10 w-full h-full">
         <Scene roomId={room.id} currentUserId={user.id} players={players || []} />

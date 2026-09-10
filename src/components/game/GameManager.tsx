@@ -11,6 +11,7 @@ type GameManagerProps = {
   currentUserId: string
   players: any[]
   isHost: boolean
+  allowPenChange: boolean
 }
 
 export type GameState = {
@@ -79,7 +80,7 @@ function findWinner(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function GameManager({ roomId, currentUserId, players: rawPlayers, isHost }: GameManagerProps) {
+export default function GameManager({ roomId, currentUserId, players: rawPlayers, isHost, allowPenChange }: GameManagerProps) {
   const supabase = createClient()
   const router = useRouter()
   
@@ -383,7 +384,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
 
     // ── RESET_READY ────────────────────────────────────────────────────────
     channel.on('broadcast', { event: 'RESET_READY' }, () => {
-      setGameState(prev => ({ ...prev, activePlayerId: null }))
+      setGameState(prev => ({ ...prev, activePlayerId: null, knockoutMessage: null }))
       setReadyPlayers({})
     })
 
@@ -549,14 +550,15 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
             setGameState(prev => ({
               ...prev,
               activePlayerId: null, // This triggers the VS screen
-              nextFirstPlayerId: nextFirst
+              nextFirstPlayerId: nextFirst,
+              knockoutMessage: null // Clear knockout message so it doesn't overlap VS screen
             }))
             // Also reset ready status for all players!
             setReadyPlayers({})
             channel.send({
               type: 'broadcast', event: 'RESET_READY', payload: {}
             })
-          }, 2500)
+          }, 1500)
         }
       }
     }
@@ -676,7 +678,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
                   </div>
 
                   <div className="w-full bg-[#fff9e6] dark:bg-neutral-800 border-2 border-black dark:border-neutral-700 rounded-lg p-3 mb-6 shadow-[2px_2px_0_#000] dark:shadow-none">
-                    {isMe && !isReady ? (
+                    {isMe && !isReady && allowPenChange ? (
                       <select 
                         value={pen.id}
                         onChange={async (e) => {
