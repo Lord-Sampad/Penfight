@@ -130,6 +130,24 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
   
   const [readyPlayers, setReadyPlayers] = useState<Record<string, boolean>>({})
 
+  // Match clock
+  const [matchSeconds, setMatchSeconds] = useState(0)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>
+    if (!gameState.winner && gameState.activePlayerId) {
+      interval = setInterval(() => {
+        setMatchSeconds(s => s + 1)
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [gameState.winner, gameState.activePlayerId])
+
+  const formatClock = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0')
+    const s = (totalSeconds % 60).toString().padStart(2, '0')
+    return `${m}:${s}`
+  }
+
   // Update stats on game over
   useEffect(() => {
     if (gameState.winner) {
@@ -719,7 +737,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
 
         {/* Clock */}
         <div className="bg-[#fdfbf7] dark:bg-neutral-900 border-2 border-black dark:border-neutral-600 rounded-lg px-3 py-1.5 shadow-[4px_4px_0px_0px_#000] font-mono font-bold text-xs flex items-center gap-2 text-black dark:text-white transition-colors">
-          <span className="text-red-500 animate-pulse">⏰</span> 00:34
+          <span className="text-red-500 animate-pulse">⏰</span> {formatClock(matchSeconds)}
         </div>
         
         {/* Theme Toggle */}

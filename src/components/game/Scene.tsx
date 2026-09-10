@@ -580,28 +580,23 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     }
   }
 
-  // ── Find pen at click — exact body hit first, then snap radius ──────────────
+  // ── Find my pen at click — exact body hit first, then snap radius ──────────────
   const SNAP = 55
-  const findPen = (wx: number, wy: number): string | null => {
-    const alive = Object.values(penBodies.current).filter(b => !(b as any).meta?.eliminated)
+  const canGrabMyPen = (wx: number, wy: number): boolean => {
+    const myBody = penBodies.current[currentUserId]
+    if (!myBody || (myBody as any).meta?.eliminated) return false
 
     // Exact polygon test
-    const hit = Matter.Query.point(alive, { x: wx, y: wy })[0]
-    if (hit) {
-      return Object.entries(penBodies.current).find(([, b]) => b === hit)?.[0] ?? null
-    }
+    const hit = Matter.Query.point([myBody], { x: wx, y: wy })[0]
+    if (hit) return true
 
     // Nearest within snap radius
-    let best: string | null = null
-    let bestD2 = SNAP * SNAP
-    Object.entries(penBodies.current).forEach(([pid, body]) => {
-      if ((body as any).meta?.eliminated) return
-      const dx = body.position.x - wx
-      const dy = body.position.y - wy
-      const d2 = dx*dx + dy*dy
-      if (d2 < bestD2) { bestD2 = d2; best = pid }
-    })
-    return best
+    const dx = myBody.position.x - wx
+    const dy = myBody.position.y - wy
+    const d2 = dx*dx + dy*dy
+    if (d2 <= SNAP * SNAP) return true
+
+    return false
   }
 
   // ── Pointer handlers ────────────────────────────────────────────────────────
@@ -612,11 +607,10 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
     const pos = toWorld(e.clientX, e.clientY)
     if (!pos) return
 
-    const pid = findPen(pos.x, pos.y)
-    if (!pid) return
+    // 2. Am I grabbing my own pen? (ignore opponent pens entirely)
+    if (!canGrabMyPen(pos.x, pos.y)) return
 
-    // 2. Am I grabbing my own pen?
-    if (pid !== currentUserId) return
+    const pid = currentUserId
 
     // Contact world point = exact click position (not pen center)
     // This is the point the force is applied at, creating realistic torque
