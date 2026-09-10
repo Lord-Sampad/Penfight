@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Scene from '@/components/game/Scene'
-import GameManager from '@/components/game/GameManager'
+import PlayClient from './PlayClient'
 
 export default async function PlayPage({
   params,
@@ -50,16 +49,13 @@ export default async function PlayPage({
       {/* Faded grid overlay */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-80 ruled-paper dark:invert dark:opacity-40"></div>
 
-      <GameManager 
-        roomId={room.id} 
-        currentUserId={user.id} 
-        players={players || []} 
+      <PlayClient 
+        roomId={room.id}
+        currentUserId={user.id}
+        initialPlayers={players || []}
         isHost={room.host_id === user.id}
         allowPenChange={room.allow_pen_change || false}
       />
-      <div className="relative z-10 w-full h-full">
-        <Scene roomId={room.id} currentUserId={user.id} players={players || []} />
-      </div>
     </div>
   )
 }
