@@ -561,6 +561,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
       window.dispatchEvent(new CustomEvent('pen-reset', { detail: { playerId: p.player_id } }))
       sleepingPens.current[p.player_id] = true
     })
+    window.dispatchEvent(new CustomEvent('turn-update', { detail: { activePlayerId: firstPlayerId } }))
   }, [players])
 
   // ── End game ──────────────────────────────────────────────────────────────
