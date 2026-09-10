@@ -470,7 +470,12 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
       const { playerId, impulse, contactPoint } = e.detail
       const body = penBodies.current[playerId]
       if (!body) return
-      Matter.Sleeping.set(body, false)
+      
+      // Wake up ALL pens to prevent friction/sleeping bugs when touching
+      Object.values(penBodies.current).forEach(b => {
+        Matter.Sleeping.set(b, false)
+      })
+
       // Apply force at the contact point — offset from center = realistic torque
       Matter.Body.applyForce(body, contactPoint, impulse)
     }
@@ -661,7 +666,9 @@ export default function Scene({ roomId, currentUserId, players }: SceneProps) {
           dy = (dy / dist) * MAX_DRAG
         }
 
-        const force = { x: dx * FORCE_MULT, y: dy * FORCE_MULT }
+        // Scale force by mass so heavy pens aren't boringly slow
+        const massScale = Math.pow(body.mass / 19, 0.75);
+        const force = { x: dx * FORCE_MULT * massScale, y: dy * FORCE_MULT * massScale }
 
         window.dispatchEvent(new CustomEvent('local-shoot-request', {
           detail: {

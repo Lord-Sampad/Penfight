@@ -22,6 +22,7 @@ export type GameState = {
   roundNumber: number
   eliminatedPlayers: string[]
   knockoutMessage: string | null
+  nextFirstPlayerId?: string | null
 }
 
 const TARGET_SCORE = 3
@@ -191,11 +192,15 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
     if (isHost && !gameState.activePlayerId && !gameState.winner) {
       const allReady = players.length > 0 && players.every(p => readyPlayers[p.player_id])
       if (allReady) {
-        const firstPlayerId = players[0]?.player_id ?? null
+        const firstPlayerId = gameState.nextFirstPlayerId ?? players[0]?.player_id ?? null
+        // If we are starting from a completely new match, keep round 1. If we are between rounds, increment.
+        const isFirstRound = Object.keys(gameState.scores).length === 0 || Object.values(gameState.scores).every(s => s === 0)
+        const nextRoundNum = isFirstRound ? 1 : gameState.roundNumber + 1
+
         channelRef.current?.send({
           type: 'broadcast',
           event: 'ROUND_RESET',
-          payload: { firstPlayerId, scores: {} }
+          payload: { firstPlayerId, scores: gameState.scores, roundNumber: nextRoundNum } // preserve scores!
         })
         
         // Supabase broadcasts do not loop back to the sender!
@@ -203,11 +208,12 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
         setGameState(prev => ({
           ...prev,
           activePlayerId: firstPlayerId,
-          scores: {},
+          // scores kept as is
           roundInProgress: true,
           eliminatedPlayers: [],
           knockoutMessage: null,
-          // If the match just started, we are on round 1 (or we can just keep prev.roundNumber)
+          nextFirstPlayerId: null, // clear it
+          roundNumber: nextRoundNum
         }))
         
         // Dispatch pen-reset for all pens to ensure they are at starting positions
@@ -375,6 +381,12 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
       }))
     })
 
+    // ── RESET_READY ────────────────────────────────────────────────────────
+    channel.on('broadcast', { event: 'RESET_READY' }, () => {
+      setGameState(prev => ({ ...prev, activePlayerId: null }))
+      setReadyPlayers({})
+    })
+
     // ── NEXT_TURN ──────────────────────────────────────────────────────────
     channel.on('broadcast', { event: 'NEXT_TURN' }, ({ payload }) => {
       setGameState(prev => ({ ...prev, activePlayerId: payload.nextPlayerId }))
@@ -392,7 +404,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
         eliminatedPlayers: [],
         knockoutMessage: null,
         activePlayerId: nextFirst,
-        roundNumber: prev.roundNumber + 1,
+        roundNumber: payload.roundNumber ?? prev.roundNumber,
       }))
       players.forEach(p => {
         window.dispatchEvent(new CustomEvent('pen-reset', { detail: { playerId: p.player_id } }))
@@ -532,7 +544,18 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
           // Clear any existing reset timer, then schedule new one
           if (resetTimer.current) clearTimeout(resetTimer.current)
           resetTimer.current = setTimeout(() => {
-            triggerRoundReset(channel, newScores, nextFirst)
+            // Instead of auto-starting the next round, return to VS screen!
+            // Store nextFirst inside the state so the VS screen knows who goes first.
+            setGameState(prev => ({
+              ...prev,
+              activePlayerId: null, // This triggers the VS screen
+              nextFirstPlayerId: nextFirst
+            }))
+            // Also reset ready status for all players!
+            setReadyPlayers({})
+            channel.send({
+              type: 'broadcast', event: 'RESET_READY', payload: {}
+            })
           }, 2500)
         }
       }
@@ -622,7 +645,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
       {!gameState.activePlayerId && !gameState.winner && (
         <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-8 pointer-events-auto">
           <div className="text-white text-4xl md:text-5xl font-black uppercase tracking-widest mb-12 animate-pulse drop-shadow-[0_4px_4px_rgba(0,0,0,1)] text-center">
-            Prepare for Battle!
+            {Object.values(gameState.scores).some(s => s > 0) ? `Prepare for Round ${gameState.roundNumber + 1}!` : 'Prepare for Battle!'}
           </div>
 
           <div className="flex flex-wrap justify-center gap-8 w-full max-w-5xl">
@@ -653,7 +676,22 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
                   </div>
 
                   <div className="w-full bg-[#fff9e6] dark:bg-neutral-800 border-2 border-black dark:border-neutral-700 rounded-lg p-3 mb-6 shadow-[2px_2px_0_#000] dark:shadow-none">
-                    <h3 className="font-black text-center mb-2 text-black dark:text-white uppercase truncate" title={pen.name}>{pen.name}</h3>
+                    {isMe && !isReady ? (
+                      <select 
+                        value={pen.id}
+                        onChange={async (e) => {
+                          const newPenId = e.target.value
+                          await supabase.from('room_players').update({ pen_id: newPenId }).eq('player_id', currentUserId).eq('room_id', roomId)
+                        }}
+                        className="w-full bg-white dark:bg-neutral-900 border-2 border-black dark:border-neutral-600 rounded p-1 mb-2 font-black text-center text-sm uppercase text-black dark:text-white cursor-pointer"
+                      >
+                        {Object.entries(PEN_PRESETS).map(([id, preset]) => (
+                          <option key={id} value={id}>{preset.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <h3 className="font-black text-center mb-2 text-black dark:text-white uppercase truncate" title={pen.name}>{pen.name}</h3>
+                    )}
                     <div className="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-700 dark:text-gray-400">
                       <div className="flex flex-col items-center bg-white dark:bg-neutral-900 rounded p-1 border border-gray-300 dark:border-neutral-700">
                         <span className="opacity-70 mb-0.5">Weight</span>
