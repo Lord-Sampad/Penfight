@@ -432,8 +432,11 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
         window.dispatchEvent(new CustomEvent('turn-update', { detail: { activePlayerId: payload.nextPlayerId } }))
       }
     })
-
-    channel.subscribe(async (status) => {
+    .on('broadcast', { event: 'PEN_CHANGED' }, ({ payload }) => {
+      // Dispatch local event so PlayClient updates the global players state
+      window.dispatchEvent(new CustomEvent('local-pen-change', { detail: payload }))
+    })
+    .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         await channel.track({ user_id: currentUserId, status: 'online' })
       }
@@ -681,9 +684,21 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
                     {isMe && !isReady && allowPenChange ? (
                       <select 
                         value={pen.id}
-                        onChange={async (e) => {
+                        onChange={(e) => {
                           const newPenId = e.target.value
-                          await supabase.from('room_players').update({ pen_id: newPenId }).eq('player_id', currentUserId).eq('room_id', roomId)
+                          // Update DB for persistence (fire and forget)
+                          supabase.from('room_players').update({ pen_id: newPenId }).eq('player_id', currentUserId).eq('room_id', roomId)
+                            .then(({ error }) => { if (error) console.error('Error updating pen:', error) })
+                          
+                          // Broadcast to update UI immediately
+                          if (channelRef.current) {
+                            channelRef.current.send({
+                              type: 'broadcast',
+                              event: 'PEN_CHANGED',
+                              payload: { playerId: currentUserId, penId: newPenId }
+                            })
+                          }
+                          window.dispatchEvent(new CustomEvent('local-pen-change', { detail: { playerId: currentUserId, penId: newPenId } }))
                         }}
                         className="w-full bg-white dark:bg-neutral-900 border-2 border-black dark:border-neutral-600 rounded p-1 mb-2 font-black text-center text-sm uppercase text-black dark:text-white cursor-pointer"
                       >
