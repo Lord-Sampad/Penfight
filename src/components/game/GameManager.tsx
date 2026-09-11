@@ -184,6 +184,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
   }, [gameState.winner, currentUserId, isHost, roomId, players, gameState.winnerIsTeam])
 
   const handlePreMatchReady = () => {
+    setReadyPlayers(prev => ({ ...prev, [currentUserId]: true }))
     if (channelRef.current) {
       channelRef.current.track({ user_id: currentUserId, status: 'online', isReady: true })
     }
@@ -386,6 +387,8 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
     channel.on('broadcast', { event: 'RESET_READY' }, () => {
       setGameState(prev => ({ ...prev, activePlayerId: null, knockoutMessage: null }))
       setReadyPlayers({})
+      // Also update presence so that the next time the user clicks "Ready", Supabase detects a change and broadcasts it!
+      channel.track({ user_id: currentUserId, status: 'online', isReady: false })
     })
 
     // ── NEXT_TURN ──────────────────────────────────────────────────────────
@@ -558,6 +561,7 @@ export default function GameManager({ roomId, currentUserId, players: rawPlayers
             }))
             // Also reset ready status for all players!
             setReadyPlayers({})
+            channel.track({ user_id: currentUserId, status: 'online', isReady: false })
             channel.send({
               type: 'broadcast', event: 'RESET_READY', payload: {}
             })
